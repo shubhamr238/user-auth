@@ -4,7 +4,8 @@
   "description": "A complete authentication system which can be used as a starter code for creating any new application, A mock interview code submitted to Arpan Garg(Coding Ninjas) by Shubham Rakshit.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
   },
   "author": "Shubham Rakshit",
   "license": "ISC",
