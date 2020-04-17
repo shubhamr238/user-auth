@@ -1,0 +1,18 @@
+<div class="mt-5">
+    <div class="col-10 col-sm-8 col-md-6 col-lg-5 col-xl-4 m-auto">
+      <div class="card card-body text-center">
+        <h1>User Auth</h1>
+        <img style="height: 150px;" src="https://image.flaticon.com/icons/svg/456/456141.svg" alt="logo">
+        
+        <% if(user){%>
+          <p>Already Signed In</p>
+          <a href="/users/sign-out" class="btn btn-danger btn-block mb-2">Sign Out</a>
+        <%}else{%>
+          <p>Create an Account or Sign In</p>
+          <a href="/users/sign-in" class="btn btn-secondary btn-block">Sign In</a>
+          <a href="/users/sign-up" class="btn btn-primary btn-block mb-2">Sign Up</a>
+        <%}%>
+        
+      </div>
+    </div>
+</div>
