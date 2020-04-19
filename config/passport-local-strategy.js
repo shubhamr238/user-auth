@@ -1,5 +1,4 @@
 const passport=require('passport');
-const bcrypt=require('bcryptjs');
 
 const LocalStrategy= require('passport-local').Strategy;
 
@@ -8,34 +7,43 @@ const User=require('../models/user');
 passport.use(new LocalStrategy({
     usernameField: 'email',
     passReqToCallback: true, //so that we can use req here
-    },function (req, email, password, done){
+    }, async (req, email, password, done)=>{
 
         //find user and establish identity
-        User.findOne({
-            email: email
-        }).then(user => {
-            if (!user) {
-                req.flash(
-                    'error',
-                    'Account Not Found! Please Create an Account'
-                );
-              return done(null, false, { message: 'That email is not registered' });
-            }
-    
-            // Match password
-            bcrypt.compare(password, user.password, (err, isMatch) => {
-                if (err) throw err;
-                if (isMatch) {
-                    return done(null, user);
-                } else {
-                    req.flash(
-                        'error',
-                        'Invalid UserName or Password'
-                    );
-                    return done(null, false, { message: 'Password incorrect' });
-                }
-            });
-        });
+        let user= await User.findOne({email: email});
+        
+        if (!user) {
+            req.flash(
+                'error',
+                'Account Not Found! Please Create an Account'
+            );
+            return done(null, false, { message: 'That email is not registered' });
+        }
+            
+        //new match password
+        const isMatch = await user.matchPassword(password);
+        if (!isMatch) {
+            req.flash(
+                'error',
+                'Invalid UserName or Password'
+            );
+            return done(null, false, { message: 'Password incorrect' });
+        }
+
+        return done(null, user);
+        // Old Match password code
+        // bcrypt.compare(password, user.password, (err, isMatch) => {
+        //     if (err) throw err;
+        //     if (isMatch) {
+        //         return done(null, user);
+        //     } else {
+        //         req.flash(
+        //             'error',
+        //             'Invalid UserName or Password'
+        //         );
+        //         return done(null, false, { message: 'Password incorrect' });
+        //     }
+        // });
     }
 ));
 
