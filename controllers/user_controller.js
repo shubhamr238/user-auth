@@ -26,70 +26,61 @@ module.exports.signIn=(req, res)=>{
 };
 
 //get the sign up data
-module.exports.create=(req, res)=>{
-    let errors=[];
-    if(req.body.password != req.body.confirm_password){
-        errors.push({msg:'Passwords Didn\'t Match'});
-    }
+module.exports.create= async (req, res)=>{
 
-    if(req.body.password.length<6){
-        errors.push({msg:'Password Should Contain Atleast 6 Characters'});
+    try {
+        //password dosen't match the confirm password.
+        if(req.body.password != req.body.confirm_password){
+            req.flash(
+                'error',
+                'Passwords Didn\'t Match.'
+            );
+            return res.redirect('/users/sign-up');
+        }
+
+        //password length less than 6
+        if(req.body.password.length<6){
+            req.flash(
+                'error',
+                'Passwords should not be less than 6 characters.'
+            );
+            return res.redirect('/users/sign-up');
+        }
+        
+        
+        let user=await User.findOne({email: req.body.email});
+        
+        //cheack if user already present or not
+        if(!user){
+            await User.create({
+                name:req.body.name,
+                email:req.body.email,
+                password:req.body.password
+            })
+            req.flash(
+                'success',
+                'You are now registered and can log in'
+            );
+            return res.redirect('/users/sign-in');
+        }
+        else{ 
+            // return res.redirect('back');
+            req.flash(
+                'error',
+                'User Already Exists!'
+            );
+            return res.redirect('/users/sign-up');
+        }
+        
+    } catch (error) {
+        console.log("Error",err);
+        req.flash(
+            'error',
+            'Some Error Occoured!'
+        );
+        return res.redirect('/users/sign-up');
     }
-    if(errors.length>0){
-        res.render('user_sign_up',{
-            title: "User Auth | Sign Up",
-            user: req.user,
-            errors,
-        });
-    }else{
-        User.findOne({email: req.body.email}, (err, user)=>{
-            if(err)
-            {
-                console.log("Error",err);
-                return;
-            }
-            if(!user){
-                bcrypt.genSalt(10, (err, salt) => {
-                    bcrypt.hash(req.body.password, salt, (err, hash) => {
-                        if (err) throw err;
-                        else{
-                            User.create({
-                                name:req.body.name,
-                                email:req.body.email,
-                                password:hash
-                            }, (err, user)=>{
-                                if(err)
-                                {
-                                    // console.log("error",err);
-                                    // return;
-                                    errors.push({msg:'Error Creating Account'});
-                                    res.render('user_sign_up',{
-                                        title: "User Auth | Sign Up",
-                                        errors,
-                                    });
-                                }
-                                req.flash(
-                                    'success',
-                                    'You are now registered and can log in'
-                                );
-                                return res.redirect('/users/sign-in');
-                            });
-                        }
-                    })
-                });
-                
-            }
-            else{
-                // return res.redirect('back');
-                errors.push({msg:'User Already Exists!'});
-                res.render('user_sign_up',{
-                    title: "User Auth | Sign Up",
-                    errors,
-                });
-            }
-        });
-    }
-};
+}
 
 //sign in and create a session for user
 module.exports.createSession=(req, res)=>{
