@@ -1,7 +1,6 @@
+const crypto = require("crypto");//for creating token
+
 const User=require('../models/user');
-const bcrypt=require('bcryptjs');
-const crypto = require("crypto");
-const async = require("async");
 const nodemailer=require('../config/nodemailer');
 
 module.exports.signUp=(req, res)=>{
@@ -115,54 +114,46 @@ module.exports.forgotPassword=(req, res)=>{
     })
 }
 
-module.exports.ForgotPasswordSendEmail=(req,res,next)=> {
+module.exports.ForgotPasswordSendEmail=async (req,res,next)=> {
+
     if(req.isAuthenticated()){
         return res.redirect('/users/dashboard');
     }
-    async.waterfall([
-      function(done) {
-        crypto.randomBytes(20, function(err, buf) {
-          var token = buf.toString('hex');
-          done(err, token);
-        });
-      },
-      function(token, done) {
-        User.findOne({ email: req.body.email }, function(err, user) {
-          if (!user) {
-            req.flash('error', 'No account with that email address exists.');
-            return res.redirect('/users/forgot-password');
-          }
-  
-          user.resetPasswordToken = token;
-          user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
-  
-          user.save(function(err) {
-            done(err, token, user);
-          });
-        });
-      },
-      function(token, user, done) {
 
-        var mailOptions = {
-          to: user.email,
-          subject: 'User Auth | Password Reset Email',
-          text: 'Hi, \n\n You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n' +
-            'Please click on the following link, or paste this into your browser to complete the process:\n\n' +
-            'http://' + req.headers.host + '/users/reset/' + token + '\n\n' +
-            'If you did not request this, please ignore this email and your password will remain unchanged.\n\nThank You\nUser Auth Team.'
-        };
-        //console.log(transporter);
-        nodemailer.transporter.sendMail(mailOptions, function(err) {
-          console.log('mail sent');
-          req.flash('success', 'An e-mail has been sent to ' + user.email + ' with further instructions.');
-          done(err, 'done');
-        });
-      }
-    ], function(err) {
-      if (err) return next(err);
-      res.redirect('/users/forgot-password');
-    });
+    var buf=await crypto.randomBytes(20);
+    var token = buf.toString('hex');
+          
+    var user=await User.findOne({ email: req.body.email });
+
+    //check if user with that email present or not
+    if (!user) {
+        req.flash('error', 'No account with that email address exists.');
+        return res.redirect('/users/forgot-password');
+    }
+  
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    user.save();
+
+    var mailOptions = {
+        to: user.email,
+        subject: 'User Auth | Password Reset Email',
+        text: 'Hi, \n\n You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n' +
+        'Please click on the following link, or paste this into your browser to complete the process:\n\n' +
+        'http://' + req.headers.host + '/users/reset/' + token + '\n\n' +
+        'If you did not request this, please ignore this email and your password will remain unchanged.\n\nThank You\nUser Auth Team.'
+    };
+    //send eamil for reset password.
+    let mail=await nodemailer.transporter.sendMail(mailOptions);
+    if(!mail){
+        req.flash('error', 'Error Sending Mail!');
+    }
+    //console.log('mail sent');
+    req.flash('success', 'An e-mail has been sent to ' + user.email + ' with further instructions.');
+    return res.redirect('/users/forgot-password');
 };
+
+
 module.exports.ViewResetForm=(req, res)=>{
     if(req.isAuthenticated()){
         return res.redirect('/users/dashboard');
@@ -179,39 +170,35 @@ module.exports.ViewResetForm=(req, res)=>{
         });
     });
 }
-module.exports.ResetUsingToken=(req, res)=>{
-    if(req.isAuthenticated()){
-        return res.redirect('/users/dashboard');
-    }
-    async.waterfall([
-        function(done) {
-          User.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } }, function(err, user) {
-            if (!user) {
-              req.flash('error', 'Password reset token is invalid or has expired.');
-              return res.redirect('back');
-            }
-            if(req.body.password === req.body.confirm_password) {
 
+module.exports.ResetUsingToken=async(req, res)=>{
 
-                bcrypt.genSalt(10, (err, salt) => {
-                    bcrypt.hash(req.body.password, salt, (err, hash) => {
-                        if (err) throw err;
-                        else{
-
-                            user.password=hash;
-                            user.save();
-                        }
-                    })
-                })
-                req.flash('success', 'Password Changed Successfully!.');
-                res.redirect('/users/sign-in');
-            } else {
-                req.flash("error", "Passwords do not match.");
-                return res.redirect('back');
-            }
-          });
+    try {
+        
+        if(req.isAuthenticated()){
+            return res.redirect('/users/dashboard');
         }
-        ], function(err) {
-            res.redirect('/users/forgot-password');
-    });
+    
+        let user=await User.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } });
+        if (!user) {
+            req.flash('error', 'Password reset token is invalid or has expired.');
+            return res.redirect('back');
+        }
+        if(req.body.password === req.body.confirm_password) {
+    
+            user.password=req.body.password;
+            user.save();
+            req.flash('success', 'Password Changed Successfully!.');
+            res.redirect('/users/sign-in');
+    
+        } else {
+            req.flash("error", "Passwords do not match.");
+            return res.redirect('back');
+        }
+
+    } catch (error) {
+        console.log(error);
+        req.flash("error", "Some Error Occoured!");
+        res.redirect('/users/forgot-password');
+    }
 }
