@@ -1,4 +1,5 @@
 const passport=require('passport');
+const captcha=require('../config/captcha');
 
 const LocalStrategy= require('passport-local').Strategy;
 
@@ -38,8 +39,6 @@ passport.use(new LocalStrategy({
             );
             return done(null, false, { message: 'Password incorrect' });
         }
-
-        return done(null, user);
         // Old Match password code
         // bcrypt.compare(password, user.password, (err, isMatch) => {
         //     if (err) throw err;
@@ -53,6 +52,43 @@ passport.use(new LocalStrategy({
         //         return done(null, false, { message: 'Password incorrect' });
         //     }
         // });
+
+
+        //new captcha check using middleware
+        if(!await captcha.isCaptchaVerified(req)){
+            return done(null, false, { message: 'Captcha problem' });
+            
+        }
+
+
+        //captcha ckeck (old)
+        // if(
+        //     req.body['g-recaptcha-response'] === undefined || 
+        //     req.body['g-recaptcha-response'] === '' || 
+        //     req.body['g-recaptcha-response'] === null
+        // ){
+        //     req.flash(
+        //         'error',
+        //         'Invalid Captcha!'
+        //     );
+        //     return done(null, false, { message: 'Invalid Captcha!' });
+        // }
+    
+        // const verificationURL = "https://www.google.com/recaptcha/api/siteverify?secret=" + process.env.CAPTCHA_SECRET_KEY + "&response=" + req.body['g-recaptcha-response'] + "&remoteip=" + req.connection.remoteAddress;
+        
+        // await request(verificationURL,function(error,response,body) {
+        //     body = JSON.parse(body);
+        
+        //     if(body.success !== undefined && !body.success) {
+        //         req.flash(
+        //             'error',
+        //             'Captcha Verifiction Failed!'
+        //         );
+        //         return done(null, false, { message: 'Captcha Verifiction Failed!' });
+        //     }
+        // });
+        
+        return done(null, user);
     }
 ));
 

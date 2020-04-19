@@ -2,6 +2,7 @@ const crypto = require("crypto");//for creating token
 
 const User=require('../models/user');
 const nodemailer=require('../config/nodemailer');
+const captcha=require('../config/captcha');
 
 module.exports.signUp=(req, res)=>{
     if(req.isAuthenticated()){
@@ -14,6 +15,9 @@ module.exports.signUp=(req, res)=>{
 };
 
 module.exports.signIn=async (req, res)=>{
+    if(req.isAuthenticated()){
+        return res.redirect('/users/dashboard');
+    }
     // console.log(req);
     return res.render('user_sign_in', {
         title: "User Auth | Sign In",
@@ -42,7 +46,10 @@ module.exports.create= async (req, res)=>{
             );
             return res.redirect('/users/sign-up');
         }
-        
+        if(!await captcha.isCaptchaVerified(req)){
+            
+            return res.redirect('/users/sign-up');
+        }
         
         let user=await User.findOne({email: req.body.email});
         
@@ -98,10 +105,13 @@ module.exports.create= async (req, res)=>{
 }
 
 //sign in and create a session for user
-module.exports.createSession=(req, res)=>{
+module.exports.createSession=async (req, res)=>{
     //req.flash('success', 'Logged In Sucessfully!');
-    return res.redirect('/users/dashboard');
-
+    
+    return res.render('user_dashboard', {
+        title: "User Auth | Dashboard",
+        user: req.user,
+    });
 };
 
 module.exports.destroySession=function(req, res){
