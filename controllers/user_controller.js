@@ -13,11 +13,8 @@ module.exports.signUp=(req, res)=>{
     });
 };
 
-module.exports.signIn=(req, res)=>{
+module.exports.signIn=async (req, res)=>{
     // console.log(req);
-    if(req.isAuthenticated()){
-        return res.redirect('/users/dashboard');
-    }
     return res.render('user_sign_in', {
         title: "User Auth | Sign In",
         user: req.user,
@@ -51,15 +48,34 @@ module.exports.create= async (req, res)=>{
         
         //cheack if user already present or not
         if(!user){
+            //generating token
+            var buf=await crypto.randomBytes(20);
+            var token = buf.toString('hex');
+
+            //creating new user
             await User.create({
                 name:req.body.name,
                 email:req.body.email,
-                password:req.body.password
-            })
-            req.flash(
-                'success',
-                'You are now registered and can log in'
-            );
+                password:req.body.password,
+                verificationToken:token
+            });
+
+            //sending email for verification
+            var mailOptions = {
+                to: req.body.email,
+                subject: 'User Auth | Email Verification',
+                text: 'Hi '+req.body.name+', \n\n You account is Created Sucessfully.\n\n' +
+                'Please click on the following link, or paste this into your browser to complete email verification:\n\n' +
+                'http://' + req.headers.host + '/users/verify-email/' + token + '\n\n' +
+                'Please Note that if you dont verify your account, You wont be able to log in.'
+            };
+            //send eamil for reset password.
+            let mail=await nodemailer.transporter.sendMail(mailOptions);
+            if(!mail){
+                req.flash('error', 'Error Sending Mail!');
+            }
+            //console.log('mail sent');
+            req.flash('success', 'You are now registered. An e-mail has been sent to ' + req.body.email + ' with further instructions.');
             return res.redirect('/users/sign-in');
         }
         else{ 
@@ -72,7 +88,7 @@ module.exports.create= async (req, res)=>{
         }
         
     } catch (error) {
-        console.log("Error",err);
+        console.log("Error",error);
         req.flash(
             'error',
             'Some Error Occoured!'
@@ -124,6 +140,14 @@ module.exports.ForgotPasswordSendEmail=async (req,res,next)=> {
     var token = buf.toString('hex');
           
     var user=await User.findOne({ email: req.body.email });
+    //check if user is veried
+    if(user.isVerified==false){
+        req.flash(
+            'error',
+            'Your Email Verification is Pending. You need to Verify your Email first.'
+        );
+        return res.redirect('/users/forgot-password');
+    }
 
     //check if user with that email present or not
     if (!user) {
@@ -201,4 +225,42 @@ module.exports.ResetUsingToken=async(req, res)=>{
         req.flash("error", "Some Error Occoured!");
         res.redirect('/users/forgot-password');
     }
+}
+
+module.exports.verifyEmail=async (req, res)=>{
+
+    try {
+        
+        let user=await User.findOne({verificationToken:req.params.token});
+        if(!user){
+            req.flash(
+                'error',
+                'Wrong Token Cannot Verify User!'
+            );
+            return res.redirect('/users/sign-in');
+        }
+        if(user.isVerified){
+            req.flash(
+                'error',
+                'User Already Verified!'
+            );
+            return res.redirect('/users/sign-in');
+        }
+        await user.updateOne({isVerified:true});
+        //user.save();
+        req.flash(
+            'success',
+            'User Verification Sucessfull!'
+        );
+        return res.redirect('/users/sign-in');
+
+    } catch (error) {
+        console.log(error);
+        req.flash(
+            'error',
+            'Something Went Wrong!'
+        );
+        return res.redirect('/users/sign-in');
+    }
+
 }

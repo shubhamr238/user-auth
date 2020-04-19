@@ -20,6 +20,15 @@ passport.use(new LocalStrategy({
             return done(null, false, { message: 'That email is not registered' });
         }
             
+        //check if the user is verified
+        if(user.isVerified==false){
+            req.flash(
+                'error',
+                'Please Verify your Email before loggin in'
+            );
+            return done(null, false, { message: 'Please Verify your Email before loggin in' });
+        }
+
         //new match password
         const isMatch = await user.matchPassword(password);
         if (!isMatch) {
